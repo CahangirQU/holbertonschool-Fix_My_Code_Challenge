@@ -1,0 +1,75 @@
+# 0. Simple web stack
+
+## 1. Whiteboard Architecture Diagram
+
++-----------------------------------------------------------------------------------------+
+|                                     USER COMPUTER                                       |
+|  [ Web Browser ] -----( DNS Query: www.foobar.com )-----> [ DNS Server (IP: 8.8.8.8) ]  |
++-----------------------------------------------------------------------------------------+
+                                      |
+                           HTTP/HTTPS Request (TCP/IP)
+                                      |
+                                      v
++-----------------------------------------------------------------------------------------+
+|                                  SERVER (IP: 8.8.8.8)                                   |
+|                                                                                         |
+|   +--------------------+      +--------------------+      +-----------------------+     |
+|   |     WEB SERVER     | ---> | APPLICATION SERVER | ---> |       DATABASE        |     |
+|   |      (Nginx)       | <--- |   (e.g., Gunicorn) | <--- |        (MySQL)        |     |
+|   +--------------------+      +--------------------+      +-----------------------+     |
+|             ^                            ^                                              |
+|             |                            |                                              |
+|             v                            v                                              |
+|   +------------------------------------------------+                                    |
+|   |               APPLICATION FILES                |                                    |
+|   |                  (Codebase)                    |                                    |
+|   +------------------------------------------------+                                    |
++-----------------------------------------------------------------------------------------+
+
+
+## 2. End-to-End Request Flow
+
+1. The User's Intent: A user opens their web browser and types www.foobar.com into the address bar.
+2. DNS Resolution: The browser does not know the physical location of www.foobar.com. It queries the DNS Server to translate this domain name. The DNS looks up the record and informs the browser: "The website is hosted at IP address 8.8.8.8."
+3. Establishing Communication: The browser sends an HTTP or HTTPS request over the network via the TCP/IP protocol stack targeting IP 8.8.8.8 on port 80 (HTTP) or 443 (HTTPS).
+4. The Web Server Interception: Inside the server, Nginx (the web server) intercepts the incoming request.
+    - If the user requests a static asset (like an image or an HTML file), Nginx retrieves it directly from the Application Files (codebase) and responds.
+    - If the request is dynamic (like logging in or loading a user feed), Nginx forwards it to the Application Server.
+5. Processing Logic: The Application Server executes the backend programming logic using the codebase. To gather the correct data, it queries the MySQL Database.
+6. The Response: The Database returns data to the Application Server, which compiles it into HTML or JSON. This is sent back to Nginx, and Nginx pushes it back over the internet to the user's browser, displaying the final website.
+
+
+## 3. Core Infrastructure Specifics
+
+- What is a server:
+  A server is a physical computer, a virtual machine (VM), or a software program dedicated to providing specific functionalities, data, or resources to other computers or programs known as "clients."
+
+- What is the role of the domain name:
+  A domain name (foobar.com) provides a human-readable, easy-to-remember alias for a server's complex numeric IP address (8.8.8.8). It prevents users from needing to memorize strings of numbers to open websites.
+
+- What type of DNS record www is in www.foobar.com:
+  The 'www' subdomain is configured as an A Record because it points directly to the numeric IPv4 address 8.8.8.8. (Alternatively, it can be a CNAME record pointing to the root domain foobar.com).
+
+- What is the role of the web server:
+  The web server (Nginx) is the frontline gatekeeper. It accepts incoming HTTP/HTTPS connections from the outside world, handles security/SSL encryption, serves static files efficiently, and forwards dynamic requests further inland.
+
+- What is the role of the application server:
+  The application server operates the dynamic middleware. It executes the backend code (Python, PHP, Node.js, etc.), processes business logic, communicates with the database, and generates the dynamic layout that the web server will deliver.
+
+- What is the role of the database:
+  The database (MySQL) is a structured storage management system. It securely organizes, updates, and fetches persistent application data such as user credentials, posts, profiles, and transactional histories.
+
+- What is the server using to communicate with the computer of the user requesting the website:
+  The server uses HTTP/HTTPS protocols built directly on top of the TCP/IP stack (Transmission Control Protocol/Internet Protocol) to transport structural data packets reliably across network devices.
+
+
+## 4. Issues with this Infrastructure
+
+- SPOF (Single Point of Failure):
+  Because all tasks are packed onto a single host, everything is a critical dependency. If the physical hardware crashes, the network interface drops, or the Nginx process freezes, the entire website goes dark immediately. There is zero redundancy.
+
+- Downtime During Maintenance:
+  Whenever updates are required—such as modifying Nginx configs, patching the application server kernel, running database migrations, or deploying new application files—relevant services must often be restarted. Because there is only one server to take the heat, users will experience a complete service outage (downtime) during these windows.
+
+- Inability to Scale:
+  A single machine has hard physical boundaries (limited CPU cores, RAM capacities, and I/O bandwidth). If a sudden influx of viral traffic hits www.foobar.com, the server cannot process the concurrent thread load. It will quickly exhaust its memory pool or CPU capacity, causing requests to time out and crash. You cannot scale dynamically or distribute traffic horizontally.
